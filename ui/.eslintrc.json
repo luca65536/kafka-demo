@@ -1,0 +1,34 @@
+{
+  "extends": [
+    "airbnb",
+    "prettier",
+    "next/core-web-vitals",
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended"
+  ],
+  "plugins": ["prettier", "@typescript-eslint"],
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "project": true,
+    "tsconfigRootDir": "/home/usr1/projects/kafka-demo/kafka-demo/ui"
+  },
+  "root": true,
+  "rules": {
+    "prettier/prettier": "error",
+    "no-unused-vars": "warn",
+    "no-console": "off",
+    "func-names": "off",
+    "no-process-exit": "off",
+    "object-shorthand": "off",
+    "class-methods-use-this": "off",
+    "react/jsx-filename-extension": [1, { "extensions": [".tsx", ".jsx"] }]
+  },
+  "overrides": [
+    {
+      "extends": [
+        "plugin:@typescript-eslint/recommended-requiring-type-checking"
+      ],
+      "files": ["./**/*.{ts,tsx}"]
+    }
+  ]
+}
