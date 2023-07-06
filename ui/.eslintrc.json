@@ -9,8 +9,7 @@
   "plugins": ["prettier", "@typescript-eslint"],
   "parser": "@typescript-eslint/parser",
   "parserOptions": {
-    "project": true,
-    "tsconfigRootDir": "/home/usr1/projects/kafka-demo/kafka-demo/ui"
+    "project": true
   },
   "root": true,
   "rules": {
@@ -30,5 +29,10 @@
       ],
       "files": ["./**/*.{ts,tsx}"]
     }
-  ]
+  ],
+  "settings": {
+    "next": {
+      "rootDir": "ui/"
+    }
+  }
 }
