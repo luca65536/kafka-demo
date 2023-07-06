@@ -1,0 +1,184 @@
+---
+version: '3.9'
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.3.2
+    hostname: zookeeper
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_SERVER_ID: 1
+      ZOOKEEPER_SERVERS: zookeeper:2888:3888
+    ports:
+      - "2181:2181"
+
+  broker:
+    image: confluentinc/cp-kafka:7.3.2
+    hostname: broker
+    container_name: broker
+    ports:
+      - "29092:29092"
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.3.3
+    hostname: schema-registry
+    container_name: schema-registry
+    restart: always
+    depends_on:
+      - zookeeper
+      - broker
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://broker:9092
+      SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL: zookeeper:2181
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+      SCHEMA_REGISTRY_DEBUG: true
+    ports:
+      - "8081:8081"
+
+  ksqldb-server-1:
+    image: confluentinc/ksqldb-server:0.28.2
+    hostname: ksqldb-server-1
+    container_name: ksqldb-server-1
+    depends_on:
+      - zookeeper
+      - broker
+      - schema-registry
+      - connect
+    volumes:
+      - $PWD/src/ksql/scripts/:/scripts/
+      - $PWD/src/ksql/udfs/:/udfs/
+      - $PWD/src/ksql/testing/:/testing/
+    ports:
+      - "8088:8088"
+    environment:
+      KSQL_LISTENERS: http://0.0.0.0:8088
+      KSQL_BOOTSTRAP_SERVERS: PLAINTEXT://broker:9092
+      KSQL_KSQL_CONNECT_URL: http://connect:8083
+      KSQL_KSQL_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      KSQL_KSQL_LOGGING_PROCESSING_STREAM_AUTO_CREATE: "true"
+      KSQL_KSQL_LOGGING_PROCESSING_TOPIC_AUTO_CREATE: "true"
+      KSQL_KSQL_EXTENSION_DIR: "/udfs"
+      # KSQL_KSQL_QUERIES_FILE: /scripts/script_name.ksql # Activates headless mode
+      KSQL_KSQL_SERVICE_ID: "compose-ksql-cluster"
+
+  ksqldb-server-2:
+    image: confluentinc/ksqldb-server:0.28.2
+    hostname: ksqldb-server-2
+    container_name: ksqldb-server-2
+    depends_on:
+      - zookeeper
+      - broker
+      - schema-registry
+      - connect
+    volumes:
+      - $PWD/src/ksql/scripts/:/scripts/
+      - $PWD/src/ksql/udfs/:/udfs/
+      - $PWD/src/ksql/testing/:/testing/
+    ports:
+      - "28088:8088"
+    environment:
+      KSQL_LISTENERS: http://0.0.0.0:8088
+      KSQL_BOOTSTRAP_SERVERS: PLAINTEXT://broker:9092
+      KSQL_KSQL_CONNECT_URL: http://connect:8083
+      KSQL_KSQL_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      KSQL_KSQL_LOGGING_PROCESSING_STREAM_AUTO_CREATE: "true"
+      KSQL_KSQL_LOGGING_PROCESSING_TOPIC_AUTO_CREATE: "true"
+      KSQL_KSQL_EXTENSION_DIR: "/udfs"
+      # KSQL_KSQL_QUERIES_FILE: /scripts/script_name.ksql # Activates headless mode
+      KSQL_KSQL_SERVICE_ID: "compose-ksql-cluster"
+
+  ksqldb-cli:
+    image: confluentinc/ksqldb-cli:0.28.2
+    container_name: ksqldb-cli
+    depends_on:
+      - zookeeper
+      - broker
+      - ksqldb-server-1
+      - ksqldb-server-2
+    entrypoint: /bin/sh
+    tty: true
+    volumes:
+      - $PWD/src/ksql/scripts/:/scripts/
+      - $PWD/src/ksql/udfs/:/udfs/
+      - $PWD/src/ksql/testing/:/testing/
+    environment:
+      KSQL_BOOTSTRAP_SERVERS: ksqldb-server-1:8088,ksqldb-server-2:8088
+
+  connect:
+    image: confluentinc/cp-kafka-connect:7.4.0
+    container_name: connect
+    depends_on:
+      - zookeeper
+      - broker
+      - schema-registry
+    ports:
+      - '8083:8083'
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: "PLAINTEXT://broker:9092"
+      CONNECT_REST_PORT: 8083
+      CONNECT_GROUP_ID: connect_group
+      CONNECT_CONFIG_STORAGE_TOPIC: connect_configs
+      CONNECT_OFFSET_STORAGE_TOPIC: connect_offsets
+      CONNECT_STATUS_STORAGE_TOPIC: connect_statuses
+      CONNECT_KEY_CONVERTER: io.confluent.connect.avro.AvroConverter
+      CONNECT_VALUE_CONVERTER: io.confluent.connect.avro.AvroConverter
+      CONNECT_KEY_CONVERTER_SCHEMA_REGISTRY_URL: 'http://schema-registry:8081'
+      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: 'http://schema-registry:8081'
+      CONNECT_INTERNAL_KEY_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      CONNECT_INTERNAL_VALUE_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      CONNECT_REST_ADVERTISED_HOST_NAME: "connect"
+      CONNECT_PLUGIN_PATH: /usr/share/java
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_CONFLUENT_TOPIC_REPLICATION_FACTOR: 1
+
+  kafka-rest:
+    image: confluentinc/cp-kafka-rest:7.4.0
+    container_name: kafka-rest
+    restart: always
+    depends_on:
+      - broker
+      - zookeeper
+      - schema-registry
+    ports:
+      - "8082:8082"
+    environment:
+      KAFKA_REST_HOST_NAME: kafka-rest
+      KAFKA_REST_BOOTSTRAP_SERVERS: PLAINTEXT://broker:9092
+      KAFKA_REST_LISTENERS: http://0.0.0.0:8082
+      KAFKA_REST_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+
+  opensearch:
+    image: opensearchproject/opensearch:2.6.0
+    container_name: opensearch
+    environment:
+      discovery.type: single-node
+      plugins.security.disabled: true
+    ports:
+      - "9200:9200"
+      - "9600:9600"
+
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:2.6.0
+    container_name: opensearch-dashboards
+    environment:
+      OPENSEARCH_HOSTS: '["http://opensearch:9200"]'
+      DISABLE_SECURITY_DASHBOARDS_PLUGIN: "true"
+    ports:
+      - "5601:5601"
+    expose:
+      - "5601"
