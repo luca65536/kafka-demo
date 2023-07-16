@@ -6,7 +6,7 @@ This is a fancy API built with FastAPI.
 
 ## Description
 
-Our Fancy API provides various endpoints to perform actions like retrieving items, filtering data, and more.
+Our fancy API provides various endpoints to perform actions like retrieving items, filtering data, and more.
 
 ## Documentation
 
